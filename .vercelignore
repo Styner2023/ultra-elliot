@@ -18,3 +18,7 @@ port/
 
 # full-quality audio masters; the deploy serves the 112k encodes
 public/sound/source/
+
+# release packages
+dist/
+tools/
