@@ -116,10 +116,18 @@ partial set is fine.
 | Battery low | The one warning you get |
 | False exit / Win | Touching the exit without the cards; escaping |
 
+Everything runs through a **convolution reverb** whose impulse response is
+generated at boot — no IR file to ship. Each room sets its own wetness, which
+does more for the sense of place than any individual sound: the Poolrooms ring
+like tile and water, the Carpet Halls swallow everything.
+
 Footsteps are **surface-aware** — carpet in the Lobby and Carpet Halls, water
 in the Poolrooms, metal in the Electrical Station and Pipe Tunnels, concrete
-elsewhere. Each step varies slightly so a corridor never sounds looped, and
-running is louder and faster than walking.
+elsewhere. Each step is layered — heel transient, material body, and a scuff as the foot
+leaves — with left and right feet pitched slightly apart so a walk cycle never
+sounds like one sample looping. Water adds randomised droplets; metal grating
+rings. Creature voices are built from three stacked formants over a rasping
+source, which is what makes them read as a throat rather than a filter.
 
 ### Spatial audio
 

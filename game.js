@@ -893,6 +893,22 @@ const SFX_SURFACES = {
   tile: { freq: 2100, q: 2.3, dur: 0.11, gain: 0.16, thump: 130 }
 };
 
+/* How reverberant each room is. Tiled and open spaces ring; carpet
+   swallows everything. This does more for the sense of place than any
+   individual sound does. */
+const SFX_ROOM_REVERB = {
+  1: 0.16,   /* Yellow Lobby - carpet, low ceiling */
+  2: 0.13,   /* Office Maze - carpet, cluttered */
+  3: 0.36,   /* Parking Garage - concrete, pillars */
+  4: 0.24,   /* Electrical Station - small, metal */
+  5: 0.58,   /* Poolrooms - tile and water, very live */
+  6: 0.32,   /* Pipe Tunnels - hard and narrow */
+  7: 0.46,   /* The Hub - big and open */
+  8: 0.15,   /* Red Rooms - soft furnishings */
+  9: 0.14,   /* Carpet Halls - dead */
+  10: 0.30   /* Endless Exit Signs - hard, unknowable size */
+};
+
 const SFX_ROOM_SURFACE = {
   1: "carpet", 2: "carpet", 3: "concrete", 4: "metal", 5: "water",
   6: "metal", 7: "concrete", 8: "carpet", 9: "carpet", 10: "concrete"
@@ -924,6 +940,13 @@ const Sfx = {
   sampleCount: 0,
   samplesTried: false,
 
+  convolver: null,
+  reverbSend: null,
+
+  /* left foot, right foot - a small asymmetry stops a walk cycle
+     sounding like one sound on a loop */
+  foot: 0,
+
   /* Created lazily: an AudioContext made before a user gesture starts
      suspended and stays that way in most browsers. */
   unlock() {
@@ -954,6 +977,7 @@ const Sfx = {
 
     this.noiseBuffer = this.buildNoise(0.5);
 
+    this.buildReverb();
     this.loadSamples();
   },
 
@@ -1018,6 +1042,83 @@ const Sfx = {
     } catch (err) {
       return false;
     }
+  },
+
+  /* A convolution reverb with a generated impulse response: exponentially
+     decaying noise, slightly longer and darker in the low end, which is
+     what a large concrete interior sounds like. No IR file to ship. */
+  buildReverb() {
+    if (!this.ctx.createConvolver) return;
+
+    try {
+      const rate = this.ctx.sampleRate;
+      const length = Math.floor(rate * 2.4);
+      const impulse = this.ctx.createBuffer(2, length, rate);
+
+      for (let channel = 0; channel < 2; channel++) {
+        const data = impulse.getChannelData(channel);
+
+        for (let i = 0; i < length; i++) {
+          const t = i / length;
+
+          /* decay, with a short build so it does not slap */
+          const envelope = Math.pow(1 - t, 2.6) * Math.min(1, t * 55);
+
+          data[i] = (Math.random() * 2 - 1) * envelope;
+        }
+      }
+
+      this.convolver = this.ctx.createConvolver();
+      this.convolver.buffer = impulse;
+
+      this.reverbSend = this.ctx.createGain();
+      this.reverbSend.gain.value = 0.2;
+
+      this.reverbSend.connect(this.convolver);
+      this.convolver.connect(this.master);
+    } catch (err) {
+      this.convolver = null;
+      this.reverbSend = null;
+    }
+  },
+
+  /* The room decides how wet everything is. */
+  setRoom(room) {
+    if (!this.reverbSend) return;
+
+    const wet = SFX_ROOM_REVERB[room];
+
+    try {
+      this.reverbSend.gain.value = typeof wet === "number" ? wet : 0.2;
+    } catch (err) {
+      /* harmless */
+    }
+  },
+
+  /* Every sound feeds one bus node, which goes to the dry master and to
+     the reverb send. Positional sounds use a panner as that node. */
+  bus(options) {
+    let node;
+
+    if (options && options.at) {
+      node = this.panner(options.at.x, options.at.y);
+      if (node === this.master) return this.master;
+    } else {
+      try {
+        node = this.ctx.createGain();
+      } catch (err) {
+        return this.master;
+      }
+    }
+
+    try {
+      node.connect(this.master);
+      if (this.reverbSend) node.connect(this.reverbSend);
+    } catch (err) {
+      return this.master;
+    }
+
+    return node;
   },
 
   buildNoise(seconds) {
@@ -1095,8 +1196,6 @@ const Sfx = {
       } else if (node.setPosition) {
         node.setPosition(wx, 0, wy);
       }
-
-      node.connect(this.master);
 
       return node;
     } catch (err) {
@@ -1193,10 +1292,8 @@ const Sfx = {
 
     const t = this.ctx.currentTime;
 
-    /* options.at = { x, y } in world units places the sound in space */
-    const out = options.at
-      ? this.panner(options.at.x, options.at.y)
-      : this.master;
+    /* one node per sound, feeding both the dry master and the reverb */
+    const out = this.bus(options);
 
     /* A recorded sample always wins. Footsteps look for the surface
        first (footstep-carpet), then the bare cue. */
@@ -1214,36 +1311,62 @@ const Sfx = {
         /* ---- positional creature voices ---- */
 
         case "creatureIdle": {
-          /* a wet, low rasp - the sound of something breathing nearby */
-          const base = 150 + Math.random() * 90;
+          /* Formants are what make a noise sound like a throat rather than
+             a filter. Three resonant peaks over a rasping source. */
+          const base = 118 + Math.random() * 70;
+          const dur = 0.55 + Math.random() * 0.35;
 
-          this.burst(t, {
-            freq: base * 2.1, q: 1.2, dur: 0.55, gain: 0.30, sweep: 0.45
-          }, out);
+          [1.9, 4.4, 7.1].forEach((ratio, i) =>
+            this.burst(t + i * 0.012, {
+              freq: base * ratio,
+              q: 5 - i,
+              dur: dur * (1 - i * 0.16),
+              gain: 0.22 / (i + 1),
+              sweep: 0.7
+            }, out)
+          );
 
           this.tone(t, {
-            freq: base, dur: 0.62, gain: 0.26, type: "sawtooth",
-            slideTo: base * 0.72
+            freq: base, dur: dur, gain: 0.20, type: "sawtooth",
+            slideTo: base * 0.78
+          }, out);
+
+          /* sub-octave: felt more than heard */
+          this.tone(t, {
+            freq: base * 0.5, dur: dur * 1.2, gain: 0.16, type: "sine",
+            slideTo: base * 0.38
           }, out);
           break;
         }
 
         case "creatureAlert": {
-          /* it has seen you: sharper, rising, dissonant */
-          const base = 240 + Math.random() * 120;
+          /* it has seen you: the same throat, opened up and rising */
+          const base = 190 + Math.random() * 110;
 
-          this.burst(t, {
-            freq: base * 3.2, q: 2.4, dur: 0.42, gain: 0.42, sweep: 2.1
+          [2.4, 5.2, 8.6].forEach((ratio, i) =>
+            this.burst(t + i * 0.008, {
+              freq: base * ratio,
+              q: 6 - i,
+              dur: 0.48 - i * 0.07,
+              gain: 0.34 / (i + 1),
+              sweep: 2.4
+            }, out)
+          );
+
+          this.tone(t, {
+            freq: base, dur: 0.52, gain: 0.30, type: "sawtooth",
+            slideTo: base * 2.3
+          }, out);
+
+          /* a second voice a beat away: the roughness is the point */
+          this.tone(t, {
+            freq: base * 1.055, dur: 0.50, gain: 0.20, type: "square",
+            slideTo: base * 2.2, delay: 0.015
           }, out);
 
           this.tone(t, {
-            freq: base, dur: 0.48, gain: 0.34, type: "sawtooth",
-            slideTo: base * 2.0
-          }, out);
-
-          this.tone(t, {
-            freq: base * 1.06, dur: 0.44, gain: 0.22, type: "square",
-            slideTo: base * 1.9, delay: 0.02
+            freq: base * 0.5, dur: 0.55, gain: 0.18, type: "sine",
+            slideTo: base * 1.1
           }, out);
           break;
         }
@@ -1259,39 +1382,97 @@ const Sfx = {
           const surface =
             SFX_SURFACES[options.surface] || SFX_SURFACES.concrete;
 
-          /* each step varies slightly so a corridor never sounds looped */
-          const vary = 0.88 + Math.random() * 0.24;
-          const loud = options.running ? 1.35 : 1;
+          /* A real footstep is three things: a heel transient, the body of
+             the material, and a scuff as the foot leaves. One noise burst
+             sounds like a click; three layers sound like a step. */
+          this.foot ^= 1;
 
+          const vary = 0.88 + Math.random() * 0.24;
+          const lean = this.foot ? 1.06 : 0.94;
+          const loud = options.running ? 1.4 : 1;
+
+          /* 1. heel strike - short and bright */
           this.burst(t, {
-            freq: surface.freq * vary,
+            freq: surface.freq * 2.6 * vary * lean,
+            q: surface.q * 2.2,
+            dur: 0.035,
+            gain: surface.gain * 0.85 * loud,
+            sweep: 0.4
+          }, out);
+
+          /* 2. body of the material */
+          this.burst(t + 0.008, {
+            freq: surface.freq * vary * lean,
             q: surface.q,
             dur: surface.dur,
             gain: surface.gain * loud,
             sweep: 0.55
           }, out);
 
+          /* 3. scuff, as weight rolls off the foot */
+          this.burst(t + 0.03, {
+            freq: surface.freq * 0.6 * vary,
+            q: 0.7,
+            dur: surface.dur * 1.5,
+            gain: surface.gain * 0.32 * loud,
+            sweep: 0.35
+          }, out);
+
+          /* hard floors ring; carpet does not */
           if (surface.thump) {
             this.tone(t, {
-              freq: surface.thump * vary,
-              dur: 0.09,
-              gain: 0.10 * loud,
+              freq: surface.thump * vary * lean,
+              dur: 0.11,
+              gain: 0.11 * loud,
               type: "sine",
-              slideTo: surface.thump * 0.6
+              slideTo: surface.thump * 0.55
             }, out);
+          }
+
+          /* water throws droplets after the step */
+          if (options.surface === "water") {
+            for (let i = 0; i < 3; i++) {
+              this.burst(t + 0.05 + Math.random() * 0.13, {
+                freq: 2600 + Math.random() * 2600,
+                q: 4,
+                dur: 0.05,
+                gain: 0.06 * loud,
+                sweep: 0.35
+              }, out);
+            }
+          }
+
+          /* metal grating keeps ringing */
+          if (options.surface === "metal") {
+            [1, 1.51, 2.36].forEach((ratio, i) =>
+              this.tone(t, {
+                freq: 1650 * ratio * vary,
+                dur: 0.30 - i * 0.06,
+                gain: 0.045 * loud,
+                type: "triangle",
+                delay: 0.004 * i
+              }, out)
+            );
           }
           break;
         }
 
         case "card":
-          /* two-note rise: unmistakably a pickup */
-          this.tone(t, { freq: 880, dur: 0.13, gain: 0.16, type: "triangle" }, out);
+          /* a plastic tick, then the two-note rise that reads as a pickup */
+          this.burst(t, { freq: 3800, q: 3, dur: 0.03, gain: 0.13, sweep: 0.4 }, out);
+
+          this.tone(t, { freq: 880, dur: 0.14, gain: 0.16, type: "triangle" }, out);
           this.tone(t, {
-            freq: 1320, dur: 0.30, gain: 0.14, type: "triangle", delay: 0.09
+            freq: 1320, dur: 0.32, gain: 0.14, type: "triangle", delay: 0.09
           }, out);
-          this.burst(t + 0.09, {
-            freq: 5200, q: 1.2, dur: 0.16, gain: 0.05, sweep: 0.5
-          }, out);
+
+          /* inharmonic shimmer: metal, not a pure tone */
+          [2.76, 5.4, 8.93].forEach((ratio, i) =>
+            this.tone(t, {
+              freq: 880 * ratio, dur: 0.26 - i * 0.05,
+              gain: 0.035 / (i + 1), type: "sine", delay: 0.09 + i * 0.012
+            }, out)
+          );
           break;
 
         case "allCards":
@@ -1304,14 +1485,24 @@ const Sfx = {
           break;
 
         case "catch": {
-          /* low impact, then the drop out of the world */
-          this.burst(t, { freq: 190, q: 0.7, dur: 0.5, gain: 0.42, sweep: 0.25 }, out);
+          /* contact, body, then the floor going out from under you */
+          this.burst(t, { freq: 2600, q: 1.4, dur: 0.06, gain: 0.40, sweep: 0.2 }, out);
+          this.burst(t + 0.01, { freq: 190, q: 0.7, dur: 0.55, gain: 0.44, sweep: 0.25 }, out);
+
           this.tone(t, {
-            freq: 150, dur: 0.7, gain: 0.30, type: "sawtooth", slideTo: 42
+            freq: 150, dur: 0.75, gain: 0.30, type: "sawtooth", slideTo: 40
           }, out);
           this.tone(t, {
-            freq: 96, dur: 0.9, gain: 0.20, type: "square", slideTo: 34, delay: 0.05
+            freq: 96, dur: 0.95, gain: 0.22, type: "square", slideTo: 32, delay: 0.04
           }, out);
+
+          /* a dissonant pair over the top, so it reads as wrong */
+          [311, 329].forEach((f, i) =>
+            this.tone(t, {
+              freq: f, dur: 0.5, gain: 0.10, type: "sawtooth",
+              slideTo: f * 0.55, delay: 0.02 * i
+            }, out)
+          );
           break;
         }
 
@@ -2088,6 +2279,7 @@ function resetGame() {
   batteryWarned = false;
   spawnGrace = GRACE_SECONDS;
   lastStepPhase = 0;
+  Sfx.setRoom(1);
 
   clearSpawnArea();
 
@@ -2366,6 +2558,7 @@ function update(dt) {
   if (newRoom !== currentRoom) {
     currentRoom = newRoom;
     roomStat.textContent = String(newRoom);
+    Sfx.setRoom(newRoom);
     setStatus(roomMessages[newRoom], 3);
   }
 

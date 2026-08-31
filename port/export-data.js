@@ -74,6 +74,7 @@ globalThis.__export = {
   tiers: Display.tiers,
   sfxSurfaces: SFX_SURFACES,
   sfxRoomSurface: SFX_ROOM_SURFACE,
+  sfxRoomReverb: SFX_ROOM_REVERB,
   turnRate: Input.TURN_RATE, deadzone: Input.DEADZONE
 };
 `;
@@ -218,6 +219,22 @@ const data = {
       footstepSurfaces: E.sfxSurfaces,
       roomSurface: E.sfxRoomSurface,
       footstepTiming: "one footfall per half cycle of the camera bob",
+      reverb: {
+        model: "convolution, impulse response generated at runtime",
+        impulseSeconds: 2.4,
+        impulseShape: "decaying noise, (1-t)^2.6 with a short build",
+        perRoomWetness: E.sfxRoomReverb,
+        note:
+          "Room reverb does more for the sense of place than any single " +
+          "sound. Poolrooms are the wettest, carpet rooms the driest."
+      },
+      layering: {
+        footstep: "heel transient + material body + scuff tail, alternating feet",
+        water: "plus 3 randomised droplets",
+        metal: "plus an inharmonic ring at 1, 1.51, 2.36",
+        creatureVoices: "3 stacked formants over a saw source, plus a sub octave",
+        card: "plastic tick, two-note rise, inharmonic shimmer"
+      },
       spatial: {
         model: "HRTF panner per positioned source, listener follows the camera",
         worldToAudio: "world (x, y) -> audio (x, 0, y); audio Y is up",
