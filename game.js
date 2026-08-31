@@ -1599,10 +1599,12 @@ const FOV = Math.PI / 3;
 
 /* ---------------------------------------------------------------
    Ultra Elliot
-   Designed and developed by Styner Stiner
+   Designed and developed by StynerDev
+   https://www.stynerdev.com/  -  https://www.styner.dev/
    --------------------------------------------------------------- */
 
-const DEVELOPER = "Styner Stiner";
+const DEVELOPER = "StynerDev";
+const DEVELOPER_SITE = "www.stynerdev.com";
 const COPYRIGHT_YEAR = "2026";
 
 const TOTAL_CARDS = 7;
@@ -3648,7 +3650,11 @@ function drawTitleScreen(width, height) {
   /* developer credit */
   ctx.fillStyle = "rgba(240,232,190,.80)";
   ctx.font = `bold ${px(14).toFixed(1)}px Arial`;
-  ctx.fillText(`A game by ${DEVELOPER}`, width / 2, px(34));
+  ctx.fillText(`A game by ${DEVELOPER}`, width / 2, px(32));
+
+  ctx.fillStyle = "rgba(240,232,190,.45)";
+  ctx.font = `${px(11).toFixed(1)}px Arial`;
+  ctx.fillText(DEVELOPER_SITE, width / 2, px(50));
 
   /* side panels use the space the square art leaves over */
   const panel = (width - size) / 2;
@@ -3732,7 +3738,7 @@ function drawEndScreen(width, height) {
   ctx.font = `${px(12).toFixed(1)}px Arial`;
   ctx.fillStyle = "rgba(240,232,190,.60)";
   ctx.fillText(
-    `Ultra Elliot  -  ${DEVELOPER}  -  (c) ${COPYRIGHT_YEAR}`,
+    `Ultra Elliot  -  ${DEVELOPER}  -  ${DEVELOPER_SITE}  -  (c) ${COPYRIGHT_YEAR}`,
     width / 2,
     height - px(24)
   );

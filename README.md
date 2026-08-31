@@ -1,6 +1,6 @@
 # Ultra Elliot
 
-**Designed and developed by Styner Stiner.**
+**Designed and developed by [StynerDev](https://www.stynerdev.com/).**
 
 A backrooms-style horror maze that runs entirely in the browser. No build step,
 no dependencies — three files and a cover image.
@@ -211,10 +211,16 @@ several times faster):
 
 ## Credits
 
-**Ultra Elliot** — designed and developed by **Styner Stiner**.
+**Ultra Elliot** — designed and developed by **StynerDev**.
 
-- Game design, engine and code: Styner Stiner
-- Music and cover art: Styner Stiner
+| | |
+| --- | --- |
+| Developer | StynerDev |
+| Website | <https://www.stynerdev.com/> |
+| Dev site | <https://www.styner.dev/> |
+
+- Game design, engine and code: StynerDev
+- Music and cover art: StynerDev
 - Sound effects: synthesised at runtime by the engine
 
-© 2026 Styner Stiner. All rights reserved.
+© 2026 StynerDev. All rights reserved.

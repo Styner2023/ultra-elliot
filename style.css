@@ -417,3 +417,23 @@ body.has-touch .touch {
     display: none;
   }
 }
+
+.credits p {
+  margin: 2px 0;
+}
+
+.credits a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.credits a:hover {
+  text-decoration: underline;
+}
+
+.credit-links {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
