@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
+  />
+  <title>Ultra Elliot</title>
+
+  <meta name="description" content="Ultra Elliot - a backrooms horror maze. 10 levels, 21 creatures, one working flashlight." />
+  <meta name="theme-color" content="#0d0f0d" />
+  <link rel="icon" href="public/Ultra-Elliot-icon.png" />
+  <link rel="apple-touch-icon" href="public/Ultra-Elliot-icon.png" />
+
+  <meta property="og:title" content="Ultra Elliot" />
+  <meta property="og:description" content="10 levels, 21 creatures, one working flashlight. Find the true exit." />
+  <meta property="og:image" content="public/Ultra-Elliot-cover.jpg" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <img src="public/Ultra-Elliot-icon.png" alt="" class="brandmark" />
+        <div class="brandtext">
+          <h1>Ultra Elliot</h1>
+          <p id="status" class="subtitle">
+            Find all 7 access cards, survive the creatures, and find the true exit.
+          </p>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="pill">Room <strong id="roomStat">1</strong>/10</div>
+        <div class="pill">Cards <strong id="cardStat">0/7</strong></div>
+        <div class="pill">Lives <strong id="lifeStat">3</strong></div>
+        <div class="pill" id="padStat" hidden>Gamepad</div>
+      </div>
+    </header>
+
+    <!-- 16:9 stage. Future Nintendo Switch Port Preparation: this matches
+         the Switch OLED handheld panel (1280x720) and TV output (1920x1080). -->
+    <section class="game-shell">
+      <canvas
+        id="game"
+        width="1280"
+        height="720"
+        tabindex="0"
+        aria-label="Ultra Elliot playable horror maze game"
+      ></canvas>
+    </section>
+
+    <section class="bottom">
+      <div class="help">
+        <strong>Controls:</strong>
+        Mouse/Right&nbsp;Stick look · WASD/Left&nbsp;Stick move ·
+        Arrows or Q/E turn · Shift/L3 run · <strong>F</strong> torch ·
+        Enter/A confirm · Esc/Start pause · <strong>M</strong> music
+      </div>
+
+      <div class="actions">
+        <label class="quality" for="quality">
+          <span>Quality</span>
+          <select id="quality">
+            <option value="auto">Auto</option>
+            <option value="0">1080p</option>
+            <option value="1">720p</option>
+            <option value="2">576p</option>
+            <option value="3">486p</option>
+            <option value="4">360p</option>
+          </select>
+        </label>
+        <button id="musicBtn" type="button" aria-pressed="true">♪ On</button>
+        <button id="pauseBtn" type="button">Pause</button>
+        <button id="restartBtn" type="button" class="restart">Restart</button>
+      </div>
+    </section>
+
+    <!-- Touch controls: phones and tablets. Hidden on precise pointers. -->
+    <section class="touch" aria-label="Touch controls">
+      <div class="touch-pad">
+        <span></span>
+        <button type="button" data-key="w" aria-label="Forward">▲</button>
+        <span></span>
+        <button type="button" data-key="a" aria-label="Strafe left">◀</button>
+        <button type="button" data-key="s" aria-label="Back">▼</button>
+        <button type="button" data-key="d" aria-label="Strafe right">▶</button>
+      </div>
+
+      <div class="touch-actions">
+        <button type="button" data-key="shift" aria-label="Run">RUN</button>
+        <button type="button" data-tap="torch" aria-label="Torch">TORCH</button>
+        <button type="button" data-tap="music" aria-label="Music">♪</button>
+        <button type="button" data-tap="pause" aria-label="Pause">❚❚</button>
+      </div>
+    </section>
+
+    <p class="mobile-note">
+      Drag on the game to look around. Click or tap the cover to enter.
+    </p>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
