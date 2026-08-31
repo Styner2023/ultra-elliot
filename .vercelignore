@@ -15,3 +15,6 @@ README_SWITCH_READY.md
 
 # port preparation tooling and data - repo only, never served
 port/
+
+# full-quality audio masters; the deploy serves the 112k encodes
+public/sound/source/

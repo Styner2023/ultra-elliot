@@ -69,7 +69,8 @@ globalThis.__export = {
   rooms, themes, cardHome, monsterHome, decoySigns, exitPoint,
   SPAWN, SPAWN_SAFE, GRACE_SECONDS,
   buildMap, grid: () => grid, roomGrid: () => roomGrid,
-  tracks: Music.tracks,
+  decks: Music.decks,
+  musicLevels: { title: Music.VOL_TITLE, explore: Music.VOL_EXPLORE, danger: Music.VOL_DANGER, paused: Music.VOL_PAUSED, hold: Music.DANGER_HOLD },
   tiers: Display.tiers,
   turnRate: Input.TURN_RATE, deadzone: Input.DEADZONE
 };
@@ -192,12 +193,27 @@ const data = {
 
   audio: {
     directory: "public/sound/",
-    rotating: true,
-    tracks: E.tracks,
-    volumeTitle: 0.55,
-    volumeInMaze: 0.4,
-    volumeWhenHunted: 0.62,
-    volumeWhenPaused: 0.12
+    model: "two-deck adaptive score with crossfade",
+    decks: {
+      explore: E.decks.explore.tracks.map((t) => t.file),
+      danger: E.decks.danger.tracks.map((t) => t.file)
+    },
+    titles: {
+      explore: E.decks.explore.tracks.map((t) => t.title),
+      danger: E.decks.danger.tracks.map((t) => t.title)
+    },
+    volumeTitle: E.musicLevels.title,
+    volumeExploring: E.musicLevels.explore,
+    volumeHunted: E.musicLevels.danger,
+    volumePaused: E.musicLevels.paused,
+    dangerHoldSeconds: E.musicLevels.hold,
+    notes: [
+      "Each deck rotates its own playlist independently.",
+      "A creature detecting the player crossfades explore -> danger.",
+      "dangerHoldSeconds keeps the danger cue alive after line of sight",
+      "breaks, so the score cannot flap as a creature ducks in and out.",
+      "A menu pause ducks to volumePaused; a system suspend stops playback."
+    ]
   },
 
   display: {

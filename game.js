@@ -597,60 +597,100 @@ const Input = {
 
 const Music = {
   DIR: "public/sound/",
-
-  /* Track 1 leads because it is Elliot's favourite. */
-  tracks: [
-    { file: "01-claustrophobic-drone-i.mp3", title: "Claustrophobic Drone I" },
-    { file: "02-pounding-heartbeat.mp3", title: "Pounding Heartbeat" },
-    { file: "03-claustrophobic-drone-ii.mp3", title: "Claustrophobic Drone II" }
-  ],
-
   STORE_KEY: "ultraElliot.music",
 
-  el: null,
-  index: 0,
+  /* Two decks. Only one is ever audible; the other is faded to silence
+     and parked. Switching decks is a crossfade, not a cut. */
+  decks: {
+    explore: {
+      name: "explore",
+      lazy: false,
+      tracks: [
+        { file: "explore-01-claustrophobic-drone-i.mp3", title: "Claustrophobic Drone I" },
+        { file: "explore-02-fluorescent-shadows-i.mp3", title: "Fluorescent Shadows I" },
+        { file: "explore-03-fluorescent-shadows-ii.mp3", title: "Fluorescent Shadows II" },
+        { file: "explore-04-claustrophobic-drone-ii.mp3", title: "Claustrophobic Drone II" }
+      ],
+      el: null,
+      index: 0,
+      volume: 0,
+      armed: false
+    },
+    danger: {
+      name: "danger",
+      /* not fetched until the player is actually in the maze, so the
+         title screen does not pay for it */
+      lazy: true,
+      tracks: [
+        { file: "danger-01-creature-hunt-i.mp3", title: "Creature Hunt I" },
+        { file: "danger-02-creature-hunt-ii.mp3", title: "Creature Hunt II" },
+        { file: "danger-03-pounding-heartbeat.mp3", title: "Pounding Heartbeat" }
+      ],
+      el: null,
+      index: 0,
+      volume: 0,
+      armed: false
+    }
+  },
+
+  active: "explore",
   enabled: true,
   unlocked: false,
   failed: false,
 
-  /* volume targets per game state */
+  /* A menu pause ducks the score but keeps it running. A *system*
+     suspend - hidden tab, lost focus, controller gone - stops it dead.
+     Without this flag update() simply restarts the deck one frame after
+     suspend() paused it. */
+  suspended: false,
+
+  /* volume targets by game state */
   VOL_TITLE: 0.55,
-  VOL_PLAY: 0.40,
-  VOL_HUNTED: 0.62,
+  VOL_EXPLORE: 0.42,
+  VOL_DANGER: 0.62,
   VOL_PAUSED: 0.12,
 
-  volume: 0,
-  target: 0,
+  /* a creature flickering in and out of sight must not flap the score */
+  DANGER_HOLD: 4.5,
+  FADE_IN: 2.2,
+  FADE_OUT: 1.1,
+
+  master: 0,
+  hold: 0,
+
+  list() {
+    return [this.decks.explore, this.decks.danger];
+  },
 
   init() {
     try {
-      this.el = new Audio();
+      this.decks.explore.el = new Audio();
+      this.decks.danger.el = new Audio();
     } catch (err) {
       this.failed = true;
       return;
     }
 
-    this.el.preload = "auto";
-    this.el.loop = false;
-    this.el.volume = 0;
+    for (const deck of this.list()) {
+      deck.el.preload = deck.lazy ? "none" : "auto";
+      deck.el.loop = false;
+      deck.el.volume = 0;
 
-    /* rotate when a track finishes */
-    this.el.addEventListener("ended", () => this.next(true));
-
-    /* a missing or unplayable file must not kill the soundtrack */
-    this.el.addEventListener("error", () => {
-      if (this.tracks.length > 1) this.next(false);
-    });
+      deck.el.addEventListener("ended", () => this.advance(deck, true));
+      deck.el.addEventListener("error", () => {
+        if (deck.tracks.length > 1) this.advance(deck, false);
+      });
+    }
 
     try {
       if (window.localStorage.getItem(this.STORE_KEY) === "off") {
         this.enabled = false;
       }
     } catch (err) {
-      /* private mode - preference simply will not persist */
+      /* private mode - preference will not persist */
     }
 
-    this.load(0);
+    this.load(this.decks.explore, 0);
 
     if (musicBtn) {
       musicBtn.addEventListener("click", () => {
@@ -662,48 +702,57 @@ const Music = {
     this.syncButton();
   },
 
-  src(i) {
-    /* filenames contain spaces and dots, so they must be encoded */
-    return this.DIR + encodeURIComponent(this.tracks[i].file);
+  src(deck, i) {
+    return this.DIR + deck.tracks[i].file;
   },
 
-  load(i) {
+  load(deck, i) {
     if (this.failed) return;
 
-    this.index = ((i % this.tracks.length) + this.tracks.length) %
-      this.tracks.length;
-    this.el.src = this.src(this.index);
+    const count = deck.tracks.length;
+    deck.index = ((i % count) + count) % count;
+    deck.el.src = this.src(deck, deck.index);
+    deck.armed = true;
   },
 
-  /* Browsers refuse audio until a real user gesture. Every entry point
-     that counts as one calls this. */
-  unlock() {
-    if (this.failed || this.unlocked) return;
+  /* pull the danger deck down only once the maze is actually running */
+  arm(deck) {
+    if (this.failed || deck.armed) return;
 
-    this.unlocked = true;
-    this.play();
+    deck.el.preload = "auto";
+    this.load(deck, deck.index);
   },
 
-  play() {
+  advance(deck, announce) {
+    if (this.failed) return;
+
+    this.load(deck, deck.index + 1);
+
+    if (deck.name === this.active) {
+      this.playDeck(deck);
+      if (announce) setStatus(`♪ ${deck.tracks[deck.index].title}`, 3);
+    }
+  },
+
+  playDeck(deck) {
     if (this.failed || !this.enabled || !this.unlocked) return;
 
-    const promise = this.el.play();
+    const promise = deck.el.play();
     if (promise && typeof promise.catch === "function") {
       promise.catch(() => {});
     }
   },
 
-  next(announce) {
-    if (this.failed) return;
+  unlock() {
+    if (this.failed || this.unlocked) return;
 
-    this.load(this.index + 1);
-    this.play();
-
-    if (announce) setStatus(`♪ ${this.current().title}`, 3);
+    this.unlocked = true;
+    this.playDeck(this.decks[this.active]);
   },
 
   current() {
-    return this.tracks[this.index] || { title: "" };
+    const deck = this.decks[this.active];
+    return deck.tracks[deck.index] || { title: "" };
   },
 
   toggle() {
@@ -713,10 +762,10 @@ const Music = {
 
     if (this.enabled) {
       this.unlocked = true;
-      this.play();
+      this.playDeck(this.decks[this.active]);
       setStatus(`♪ ${this.current().title}`, 3);
     } else {
-      this.el.pause();
+      for (const deck of this.list()) deck.el.pause();
       setStatus("Music off.", 2);
     }
 
@@ -736,47 +785,81 @@ const Music = {
     musicBtn.setAttribute("aria-pressed", this.enabled ? "true" : "false");
   },
 
-  /* Called once per frame. Decides the volume the current game state
-     deserves and eases towards it, so nothing ever cuts abruptly. */
+  /* Called once per frame. Chooses the deck the situation calls for and
+     the volume the game state deserves, then eases everything there. */
   update(dt, hunted) {
-    if (this.failed || !this.el) return;
+    if (this.failed) return;
 
-    if (!this.enabled) {
-      this.target = 0;
-    } else if (!started) {
-      this.target = this.VOL_TITLE;
-    } else if (paused) {
-      this.target = this.VOL_PAUSED;
-    } else if (won || gameOver) {
-      this.target = this.VOL_TITLE;
-    } else if (hunted) {
-      /* something has seen you: lean on the drone */
-      this.target = this.VOL_HUNTED;
+    /* deck selection, with hysteresis so it cannot flap */
+    if (started && !won && !gameOver) {
+      this.arm(this.decks.danger);
+
+      if (hunted) {
+        this.hold = this.DANGER_HOLD;
+        this.active = "danger";
+      } else if (this.hold > 0) {
+        this.hold -= dt;
+        if (this.hold <= 0) this.active = "explore";
+      }
     } else {
-      this.target = this.VOL_PLAY;
+      this.hold = 0;
+      this.active = "explore";
     }
 
-    const rate = this.target > this.volume ? 1.6 : 2.4;
-    this.volume += (this.target - this.volume) * Math.min(1, dt * rate);
+    /* master volume by game state */
+    if (!this.enabled || this.suspended) {
+      this.master = 0;
+    } else if (!started) {
+      this.master = this.VOL_TITLE;
+    } else if (paused) {
+      this.master = this.VOL_PAUSED;
+    } else if (won || gameOver) {
+      this.master = this.VOL_TITLE;
+    } else if (this.active === "danger") {
+      this.master = this.VOL_DANGER;
+    } else {
+      this.master = this.VOL_EXPLORE;
+    }
 
-    if (this.volume < 0) this.volume = 0;
-    if (this.volume > 1) this.volume = 1;
+    /* crossfade: rising deck comes in faster than the falling one leaves */
+    for (const deck of this.list()) {
+      const isActive =
+        deck.name === this.active && this.enabled && !this.suspended;
+      const target = isActive ? this.master : 0;
+      const rate = target > deck.volume ? this.FADE_OUT : this.FADE_IN;
 
-    try {
-      this.el.volume = this.volume;
-    } catch (err) {
-      /* some browsers refuse volume writes; harmless */
+      deck.volume += (target - deck.volume) * Math.min(1, dt * (1 / rate) * 3);
+
+      if (deck.volume < 0) deck.volume = 0;
+      if (deck.volume > 1) deck.volume = 1;
+
+      try {
+        deck.el.volume = deck.volume;
+      } catch (err) {
+        /* some browsers refuse volume writes; harmless */
+      }
+
+      if (isActive) {
+        if (deck.el.paused && this.unlocked) this.playDeck(deck);
+      } else if (deck.volume < 0.005 && !deck.el.paused) {
+        /* fully faded out: park it rather than burn bandwidth */
+        deck.el.pause();
+      }
     }
   },
 
-  /* suspend / focus loss / controller disconnect */
   suspend() {
     if (this.failed) return;
-    this.el.pause();
+
+    this.suspended = true;
+    for (const deck of this.list()) deck.el.pause();
   },
 
   resume() {
-    this.play();
+    if (this.failed) return;
+
+    this.suspended = false;
+    this.playDeck(this.decks[this.active]);
   }
 };
 
@@ -3262,7 +3345,8 @@ function togglePause() {
 
   if (paused) {
     capturePauseFrame();
-    Music.suspend();
+    /* no Music.suspend() here: a menu pause ducks the score rather
+       than stopping it. update() eases it down to VOL_PAUSED. */
     if (document.pointerLockElement === canvas) document.exitPointerLock();
   } else {
     frameCached = false;

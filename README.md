@@ -13,7 +13,8 @@ no dependencies — three files and a cover image.
 - `public/Ultra-Elliot-cover.jpg` — cover art (title screen, social preview)
 - `public/Ultra-Elliot-icon.png` — favicon and header mark
 - `public/Ultra-Elliot.png` — full-resolution original (kept locally, not deployed)
-- `public/sound/` — the soundtrack (rotating ambient tracks)
+- `public/sound/` — the adaptive score (`explore-*` and `danger-*` decks)
+- `public/sound/source/` — full-quality originals, kept out of the deploy
 - `README_SWITCH_READY.md` — platform readiness, controller mapping, and what a
   Nintendo Switch OLED port would actually require
 - `port/` — engine-agnostic export of the whole game as data, plus a porting
@@ -72,20 +73,36 @@ playable yet — see the two-player section of
 
 ## Soundtrack
 
-A rotating ambient soundtrack lives in `public/sound/`. Drop more `.mp3` files
-in and add them to the `Music.tracks` list in [game.js](game.js).
+An **adaptive two-deck score** in `public/sound/`. One deck is always audible;
+the other sits silent and parked. Detection crossfades between them.
 
-- Starts on **Claustrophobic Drone I** — Elliot's favourite.
-- Rotates to the next track automatically when one ends, then wraps.
-- Quieter inside the maze than on the title screen, and **leans in when a
-  creature has actually seen you**.
-- Ducks when paused; stops on suspend, focus loss, or controller disconnect.
-- `M` or the ♪ button mutes; the choice is remembered per browser.
-- A missing or unplayable file skips to the next track instead of killing the
-  soundtrack.
+| Deck | Tracks | Plays when |
+| --- | --- | --- |
+| `explore-*` | Claustrophobic Drone I *(Elliot's favourite, leads)*, Fluorescent Shadows I & II, Claustrophobic Drone II | Title screen and normal exploration |
+| `danger-*` | Creature Hunt I & II, Pounding Heartbeat | A creature has actually seen you |
 
-Browsers block audio until the player interacts, so the music starts on the
-click or tap that enters the game. That is the intended behaviour, not a bug.
+- Each deck **rotates its own playlist** independently.
+- The danger deck **holds for 4.5 s after line of sight breaks**, so the score
+  cannot flap as a creature ducks behind a corner.
+- The danger deck is **not downloaded on the title screen** — it loads only
+  once you enter the maze.
+- A faded-out deck is paused rather than left streaming.
+- A **menu pause ducks** the score to 0.12 and keeps it running; a **system
+  suspend** (hidden tab, lost focus, controller disconnect) stops it dead.
+- `M` or the ♪ button mutes both decks; remembered per browser.
+- A missing or unplayable file skips within its own deck.
+
+Browsers block audio until the player interacts, so the score starts on the
+click or tap that enters the game. That is intended, not a bug.
+
+### Adding tracks
+
+Drop an `.mp3` into `public/sound/` named `explore-NN-*` or `danger-NN-*`, then
+add it to the matching deck in `Music.decks` in [game.js](game.js).
+
+Originals live in `public/sound/source/` and are kept out of the deploy. The
+served files are re-encoded to 112 kbps, which took the audio from 12 MB to
+7.4 MB with no audible loss on ambient material.
 
 ## Game
 

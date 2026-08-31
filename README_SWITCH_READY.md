@@ -27,7 +27,7 @@ release would still require.
 | Touch | On-screen pad, run/torch/pause buttons, drag-to-look |
 | Gameplay | 10 levels, 21 creatures, 7 access cards, 3 lives, true exit — unchanged |
 | Resilience | Pauses on controller disconnect, suspend, and focus loss |
-| Audio | Rotating ambient soundtrack with state-based ducking. **No sound effects yet.** |
+| Audio | Adaptive two-deck score: explore/danger crossfade on detection, per-deck rotation, hysteresis. **No one-shot SFX yet.** |
 
 ### Display tiers
 
@@ -186,7 +186,7 @@ we do not have:
 
 | Gap | Status |
 | --- | --- |
-| Audio | Music done. **No SFX** — no footsteps, creature vocalisations, pickups, or positional audio. |
+| Audio | Adaptive score done. **No one-shot SFX** — no footsteps, creature vocalisations, pickups, or positional audio. |
 | Localisation | English only. |
 | Save data / user profiles | None. No progress is persisted. |
 | Button glyphs and naming | Prompts say "A"; a Switch build must follow Nintendo's naming and glyph rules. |

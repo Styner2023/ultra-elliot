@@ -741,25 +741,45 @@
   },
   "audio": {
     "directory": "public/sound/",
-    "rotating": true,
-    "tracks": [
-      {
-        "file": "01-claustrophobic-drone-i.mp3",
-        "title": "Claustrophobic Drone I"
-      },
-      {
-        "file": "02-pounding-heartbeat.mp3",
-        "title": "Pounding Heartbeat"
-      },
-      {
-        "file": "03-claustrophobic-drone-ii.mp3",
-        "title": "Claustrophobic Drone II"
-      }
-    ],
+    "model": "two-deck adaptive score with crossfade",
+    "decks": {
+      "explore": [
+        "explore-01-claustrophobic-drone-i.mp3",
+        "explore-02-fluorescent-shadows-i.mp3",
+        "explore-03-fluorescent-shadows-ii.mp3",
+        "explore-04-claustrophobic-drone-ii.mp3"
+      ],
+      "danger": [
+        "danger-01-creature-hunt-i.mp3",
+        "danger-02-creature-hunt-ii.mp3",
+        "danger-03-pounding-heartbeat.mp3"
+      ]
+    },
+    "titles": {
+      "explore": [
+        "Claustrophobic Drone I",
+        "Fluorescent Shadows I",
+        "Fluorescent Shadows II",
+        "Claustrophobic Drone II"
+      ],
+      "danger": [
+        "Creature Hunt I",
+        "Creature Hunt II",
+        "Pounding Heartbeat"
+      ]
+    },
     "volumeTitle": 0.55,
-    "volumeInMaze": 0.4,
-    "volumeWhenHunted": 0.62,
-    "volumeWhenPaused": 0.12
+    "volumeExploring": 0.42,
+    "volumeHunted": 0.62,
+    "volumePaused": 0.12,
+    "dangerHoldSeconds": 4.5,
+    "notes": [
+      "Each deck rotates its own playlist independently.",
+      "A creature detecting the player crossfades explore -> danger.",
+      "dangerHoldSeconds keeps the danger cue alive after line of sight",
+      "breaks, so the score cannot flap as a creature ducks in and out.",
+      "A menu pause ducks to volumePaused; a system suspend stops playback."
+    ]
   },
   "display": {
     "aspect": "16:9",
