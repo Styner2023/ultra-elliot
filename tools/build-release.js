@@ -20,7 +20,6 @@ const DIST = path.join(ROOT, "dist");
 const STAGE = path.join(DIST, "ultra-elliot-web");
 
 const INCLUDE = [
-  "_headers",
   "index.html",
   "style.css",
   "game.js",
@@ -47,7 +46,7 @@ const copy = (rel) => {
   return true;
 };
 
-const missing = INCLUDE.filter((f) => !copy(f)).filter((f) => f !== "_headers");
+const missing = INCLUDE.filter((f) => !copy(f));
 
 if (missing.length) {
   console.error("MISSING required files: " + missing.join(", "));
@@ -83,5 +82,4 @@ const walk = (dir, prefix = "") => {
 };
 walk(STAGE);
 console.log("\nitch.io  - upload the zip, tick \"played in the browser\", 1280x720, fullscreen on");
-console.log("Cloudflare - wrangler pages deploy dist/ultra-elliot-web --project-name ultra-elliot");
-console.log("Netlify    - netlify deploy --dir dist/ultra-elliot-web --prod");
+console.log("(the live site deploys straight from the repo with: vercel --prod)");
