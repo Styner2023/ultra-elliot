@@ -12,3 +12,6 @@ public/Ultra-Elliot.png
 # docs are for the repo, not the CDN
 README.md
 README_SWITCH_READY.md
+
+# port preparation tooling and data - repo only, never served
+port/

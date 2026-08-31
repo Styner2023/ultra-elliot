@@ -16,6 +16,9 @@ no dependencies — three files and a cover image.
 - `public/sound/` — the soundtrack (rotating ambient tracks)
 - `README_SWITCH_READY.md` — platform readiness, controller mapping, and what a
   Nintendo Switch OLED port would actually require
+- `port/` — engine-agnostic export of the whole game as data, plus a porting
+  guide. Run `node port/export-data.js` to regenerate, `node port/validate-data.js`
+  to verify.
 
 ## Play
 
