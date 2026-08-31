@@ -908,6 +908,22 @@ const Sfx = {
 
   MASTER_GAIN: 0.85,
 
+  /* ------------------------------------------------------------------
+     Recorded samples, optional.
+
+     If public/sfx/manifest.json exists, every file it lists is fetched
+     and decoded, and any cue with a sample plays that instead of the
+     synthesised version. Cues without one keep synthesising, so the game
+     is never silent and partial sample sets are fine.
+
+     A missing manifest is the normal case and costs exactly one 404.
+     ------------------------------------------------------------------ */
+
+  SAMPLE_DIR: "public/sfx/",
+  samples: Object.create(null),
+  sampleCount: 0,
+  samplesTried: false,
+
   /* Created lazily: an AudioContext made before a user gesture starts
      suspended and stays that way in most browsers. */
   unlock() {
@@ -937,6 +953,71 @@ const Sfx = {
     this.master.connect(this.ctx.destination);
 
     this.noiseBuffer = this.buildNoise(0.5);
+
+    this.loadSamples();
+  },
+
+  /* Fetch and decode whatever the manifest lists. Entirely optional: any
+     failure leaves the synthesised cues in place. */
+  loadSamples() {
+    if (this.samplesTried || typeof fetch !== "function") return;
+
+    this.samplesTried = true;
+
+    fetch(this.SAMPLE_DIR + "manifest.json")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((manifest) => {
+        if (!manifest) return;
+
+        Object.keys(manifest).forEach((cue) => {
+          const files = manifest[cue];
+          if (!Array.isArray(files)) return;
+
+          files.forEach((file) => {
+            fetch(this.SAMPLE_DIR + file)
+              .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject()))
+              .then((bytes) => this.ctx.decodeAudioData(bytes))
+              .then((buffer) => {
+                (this.samples[cue] || (this.samples[cue] = [])).push(buffer);
+                this.sampleCount++;
+              })
+              .catch(() => {
+                /* one bad file must not take the set down */
+              });
+          });
+        });
+      })
+      .catch(() => {
+        /* no manifest: synthesis only, which is the default */
+      });
+  },
+
+  /* Play a recorded sample if the cue has one. Returns false when it has
+     none, which is the caller's signal to synthesise instead. */
+  sample(cue, dest, gain) {
+    const bank = this.samples[cue];
+
+    if (!bank || !bank.length) return false;
+
+    try {
+      const source = this.ctx.createBufferSource();
+      source.buffer = bank[(Math.random() * bank.length) | 0];
+
+      /* a touch of pitch variation, so a repeated sample stops sounding
+         like the same recording every time */
+      source.playbackRate.value = 0.94 + Math.random() * 0.12;
+
+      const amp = this.ctx.createGain();
+      amp.gain.value = typeof gain === "number" ? gain : 1;
+
+      source.connect(amp);
+      amp.connect(dest || this.master);
+      source.start(this.ctx.currentTime);
+
+      return true;
+    } catch (err) {
+      return false;
+    }
   },
 
   buildNoise(seconds) {
@@ -1116,6 +1197,16 @@ const Sfx = {
     const out = options.at
       ? this.panner(options.at.x, options.at.y)
       : this.master;
+
+    /* A recorded sample always wins. Footsteps look for the surface
+       first (footstep-carpet), then the bare cue. */
+    if (this.sampleCount) {
+      if (name === "footstep" && options.surface) {
+        if (this.sample("footstep-" + options.surface, out)) return true;
+      }
+
+      if (this.sample(name, out)) return true;
+    }
 
     try {
       switch (name) {

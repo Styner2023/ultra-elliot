@@ -15,6 +15,8 @@ no dependencies — three files and a cover image.
 - `public/Ultra-Elliot.png` — full-resolution original (kept locally, not deployed)
 - `public/sound/` — the adaptive score (`explore-*` and `danger-*` decks)
 - `public/sound/source/` — full-quality originals, kept out of the deploy
+- `public/sfx/` — optional recorded sound effects (empty = all synthesised)
+- `tools/build-sfx-manifest.js` — scans `public/sfx/` and writes its manifest
 - `README_SWITCH_READY.md` — platform readiness, controller mapping, and what a
   Nintendo Switch OLED port would actually require
 - `port/` — engine-agnostic export of the whole game as data, plus a porting
@@ -99,6 +101,11 @@ click or tap that enters the game. That is intended, not a bug.
 
 One-shot effects are **synthesised at runtime with Web Audio** — nothing to
 download, and every sound is a handful of numbers rather than a file.
+
+Recordings can replace any of them: drop files into
+[public/sfx/](public/sfx/README.md) and run `node tools/build-sfx-manifest.js`.
+Cues you provide use the recording; everything else keeps synthesising, so a
+partial set is fine.
 
 | Cue | When |
 | --- | --- |

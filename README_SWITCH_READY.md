@@ -186,7 +186,7 @@ we do not have:
 
 | Gap | Status |
 | --- | --- |
-| Audio | Score, one-shot effects and HRTF-spatialised creature voices all done. Remaining: recorded samples if synthesis is not wanted. |
+| Audio | Score, one-shot effects and HRTF-spatialised creature voices all done. Recordings can replace any cue via `public/sfx/`; synthesis is the fallback. |
 | Localisation | English only. |
 | Save data / user profiles | None. No progress is persisted. |
 | Button glyphs and naming | Prompts say "A"; a Switch build must follow Nintendo's naming and glyph rules. |
@@ -279,7 +279,7 @@ Search `game.js` for `FUTURE NINTENDO SWITCH PORT PREPARATION`:
 | DISPLAY | 16:9 tiers, dynamic resolution, UI scaling |
 | INPUT | the whole abstract input layer and its bindings |
 | AUDIO | playlist rotation, ducking, mute — backend swaps for the port |
-| SOUND EFFECTS | cue names, synthesis and 3D placement; swap for samples or console audio |
+| SOUND EFFECTS | cue names, sample-or-synthesis selection, and 3D placement |
 | SYSTEM INPUT | menu / pause / restart intent |
 | (in `update`) | movement driven entirely by intent |
 | (in `drawHUD`) | HUD authored at 1280×720 and scaled |
