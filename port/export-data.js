@@ -72,6 +72,8 @@ globalThis.__export = {
   decks: Music.decks,
   musicLevels: { title: Music.VOL_TITLE, explore: Music.VOL_EXPLORE, danger: Music.VOL_DANGER, paused: Music.VOL_PAUSED, hold: Music.DANGER_HOLD },
   tiers: Display.tiers,
+  sfxSurfaces: SFX_SURFACES,
+  sfxRoomSurface: SFX_ROOM_SURFACE,
   turnRate: Input.TURN_RATE, deadzone: Input.DEADZONE
 };
 `;
@@ -207,6 +209,19 @@ const data = {
     volumeHunted: E.musicLevels.danger,
     volumePaused: E.musicLevels.paused,
     dangerHoldSeconds: E.musicLevels.hold,
+    effects: {
+      model: "synthesised at runtime (Web Audio), no sample files",
+      cues: [
+        "footstep (surface-aware)", "card", "allCards", "catch",
+        "torchOn", "torchOff", "batteryLow", "falseExit", "win", "gameOver"
+      ],
+      footstepSurfaces: E.sfxSurfaces,
+      roomSurface: E.sfxRoomSurface,
+      footstepTiming: "one footfall per half cycle of the camera bob",
+      note:
+        "A native port can keep these as synthesis or swap in recorded " +
+        "samples; call sites only ever name a cue."
+    },
     notes: [
       "Each deck rotates its own playlist independently.",
       "A creature detecting the player crossfades explore -> danger.",

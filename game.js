@@ -342,6 +342,7 @@ const Input = {
       /* a real key press is a user gesture, which is what browsers
          require before any audio may start */
       Music.unlock();
+      Sfx.unlock();
 
       if (this.HELD_KEYS.includes(key)) {
         event.preventDefault();
@@ -430,6 +431,7 @@ const Input = {
       button.addEventListener("pointerdown", (event) => {
         event.preventDefault();
         Music.unlock();
+      Sfx.unlock();
         this.touchHeld.add(key);
       });
 
@@ -442,6 +444,7 @@ const Input = {
       button.addEventListener("pointerdown", (event) => {
         event.preventDefault();
         Music.unlock();
+      Sfx.unlock();
         this.taps.add(button.dataset.tap);
       });
     });
@@ -775,6 +778,9 @@ const Music = {
       /* not persistable here */
     }
 
+    /* one control for all audio: players expect a mute to mute */
+    Sfx.setEnabled(this.enabled);
+
     this.syncButton();
   },
 
@@ -853,15 +859,331 @@ const Music = {
 
     this.suspended = true;
     for (const deck of this.list()) deck.el.pause();
+    Sfx.suspend();
   },
 
   resume() {
     if (this.failed) return;
 
     this.suspended = false;
+    Sfx.resume();
     this.playDeck(this.decks[this.active]);
   }
 };
+
+/* =====================================================================
+   FUTURE NINTENDO SWITCH PORT PREPARATION - SOUND EFFECTS
+   ---------------------------------------------------------------------
+   One-shot effects, synthesised at runtime with Web Audio rather than
+   streamed from files. Nothing to download, nothing to cache, and every
+   sound is a handful of numbers that can be retuned without a re-encode.
+
+   The game never builds an oscillator itself; it calls Sfx.play("card")
+   and this module decides what that means. Swapping to real recorded
+   samples, or to a console audio backend, is a change inside play() -
+   every call site stays as it is.
+   ===================================================================== */
+
+/* Footsteps take their character from what the player is walking on. */
+const SFX_SURFACES = {
+  carpet: { freq: 430, q: 1.0, dur: 0.15, gain: 0.15, thump: 70 },
+  concrete: { freq: 1500, q: 1.7, dur: 0.10, gain: 0.17, thump: 95 },
+  metal: { freq: 2700, q: 3.6, dur: 0.18, gain: 0.14, thump: 150 },
+  water: { freq: 950, q: 0.8, dur: 0.24, gain: 0.18, thump: 0 },
+  tile: { freq: 2100, q: 2.3, dur: 0.11, gain: 0.16, thump: 130 }
+};
+
+const SFX_ROOM_SURFACE = {
+  1: "carpet", 2: "carpet", 3: "concrete", 4: "metal", 5: "water",
+  6: "metal", 7: "concrete", 8: "carpet", 9: "carpet", 10: "concrete"
+};
+
+const Sfx = {
+  ctx: null,
+  master: null,
+  noiseBuffer: null,
+  enabled: true,
+  muted: false,
+  failed: false,
+
+  MASTER_GAIN: 0.85,
+
+  /* Created lazily: an AudioContext made before a user gesture starts
+     suspended and stays that way in most browsers. */
+  unlock() {
+    if (this.failed) return;
+
+    if (this.ctx) {
+      if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+      return;
+    }
+
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+
+    if (!Ctor) {
+      this.failed = true;
+      return;
+    }
+
+    try {
+      this.ctx = new Ctor();
+    } catch (err) {
+      this.failed = true;
+      return;
+    }
+
+    this.master = this.ctx.createGain();
+    this.master.gain.value = this.MASTER_GAIN;
+    this.master.connect(this.ctx.destination);
+
+    this.noiseBuffer = this.buildNoise(0.5);
+  },
+
+  buildNoise(seconds) {
+    const rate = this.ctx.sampleRate;
+    const buffer = this.ctx.createBuffer(1, Math.floor(rate * seconds), rate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+    return buffer;
+  },
+
+  ready() {
+    return (
+      !this.failed &&
+      !!this.ctx &&
+      this.enabled &&
+      !this.muted &&
+      this.ctx.state === "running"
+    );
+  },
+
+  /* Current gain for the current state. */
+  level() {
+    return this.enabled && !this.muted ? this.MASTER_GAIN : 0;
+  },
+
+  applyGain() {
+    if (!this.master) return;
+
+    try {
+      this.master.gain.value = this.level();
+    } catch (err) {
+      /* harmless */
+    }
+  },
+
+  /* ---- primitives ---- */
+
+  /* a filtered burst of noise: impacts, footsteps, splashes */
+  burst(when, { freq, q, dur, gain, type = "bandpass", sweep = 0 }) {
+    const source = this.ctx.createBufferSource();
+    source.buffer = this.noiseBuffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = type;
+    filter.frequency.setValueAtTime(freq, when);
+    filter.Q.value = q;
+
+    if (sweep) {
+      filter.frequency.exponentialRampToValueAtTime(
+        Math.max(40, freq * sweep),
+        when + dur
+      );
+    }
+
+    const amp = this.ctx.createGain();
+    amp.gain.setValueAtTime(0.0001, when);
+    amp.gain.exponentialRampToValueAtTime(gain, when + 0.006);
+    amp.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+
+    source.connect(filter);
+    filter.connect(amp);
+    amp.connect(this.master);
+
+    source.start(when);
+    source.stop(when + dur + 0.02);
+  },
+
+  /* a pitched tone: pickups, warnings, stings */
+  tone(when, { freq, dur, gain, type = "sine", slideTo = 0, delay = 0 }) {
+    const start = when + delay;
+
+    const osc = this.ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, start);
+
+    if (slideTo) {
+      osc.frequency.exponentialRampToValueAtTime(slideTo, start + dur);
+    }
+
+    const amp = this.ctx.createGain();
+    amp.gain.setValueAtTime(0.0001, start);
+    amp.gain.exponentialRampToValueAtTime(gain, start + 0.012);
+    amp.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+    osc.connect(amp);
+    amp.connect(this.master);
+
+    osc.start(start);
+    osc.stop(start + dur + 0.02);
+  },
+
+  /* ---- the effects themselves ---- */
+
+  play(name, options = {}) {
+    if (!this.ready()) return false;
+
+    const t = this.ctx.currentTime;
+
+    try {
+      switch (name) {
+        case "footstep": {
+          const surface =
+            SFX_SURFACES[options.surface] || SFX_SURFACES.concrete;
+
+          /* each step varies slightly so a corridor never sounds looped */
+          const vary = 0.88 + Math.random() * 0.24;
+          const loud = options.running ? 1.35 : 1;
+
+          this.burst(t, {
+            freq: surface.freq * vary,
+            q: surface.q,
+            dur: surface.dur,
+            gain: surface.gain * loud,
+            sweep: 0.55
+          });
+
+          if (surface.thump) {
+            this.tone(t, {
+              freq: surface.thump * vary,
+              dur: 0.09,
+              gain: 0.10 * loud,
+              type: "sine",
+              slideTo: surface.thump * 0.6
+            });
+          }
+          break;
+        }
+
+        case "card":
+          /* two-note rise: unmistakably a pickup */
+          this.tone(t, { freq: 880, dur: 0.13, gain: 0.16, type: "triangle" });
+          this.tone(t, {
+            freq: 1320, dur: 0.30, gain: 0.14, type: "triangle", delay: 0.09
+          });
+          this.burst(t + 0.09, {
+            freq: 5200, q: 1.2, dur: 0.16, gain: 0.05, sweep: 0.5
+          });
+          break;
+
+        case "allCards":
+          /* the run just changed shape - say so */
+          [660, 880, 1320].forEach((f, i) =>
+            this.tone(t, {
+              freq: f, dur: 0.5, gain: 0.13, type: "triangle", delay: i * 0.11
+            })
+          );
+          break;
+
+        case "catch": {
+          /* low impact, then the drop out of the world */
+          this.burst(t, { freq: 190, q: 0.7, dur: 0.5, gain: 0.42, sweep: 0.25 });
+          this.tone(t, {
+            freq: 150, dur: 0.7, gain: 0.30, type: "sawtooth", slideTo: 42
+          });
+          this.tone(t, {
+            freq: 96, dur: 0.9, gain: 0.20, type: "square", slideTo: 34, delay: 0.05
+          });
+          break;
+        }
+
+        case "torchOn":
+          this.burst(t, { freq: 3400, q: 6, dur: 0.05, gain: 0.16 });
+          this.tone(t, { freq: 1500, dur: 0.05, gain: 0.07, type: "square" });
+          break;
+
+        case "torchOff":
+          this.burst(t, { freq: 2400, q: 6, dur: 0.05, gain: 0.14 });
+          this.tone(t, { freq: 900, dur: 0.06, gain: 0.06, type: "square" });
+          break;
+
+        case "batteryLow":
+          /* two dry ticks, easy to miss and easy to regret missing */
+          [0, 0.17].forEach((d) =>
+            this.tone(t, {
+              freq: 620, dur: 0.10, gain: 0.10, type: "square", delay: d
+            })
+          );
+          break;
+
+        case "falseExit":
+          this.tone(t, {
+            freq: 210, dur: 0.42, gain: 0.16, type: "sawtooth", slideTo: 130
+          });
+          this.burst(t, { freq: 380, q: 1.4, dur: 0.30, gain: 0.10 });
+          break;
+
+        case "win":
+          [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
+            this.tone(t, {
+              freq: f, dur: 1.5, gain: 0.13, type: "triangle", delay: i * 0.16
+            })
+          );
+          break;
+
+        case "gameOver":
+          [392, 311, 233, 174.6].forEach((f, i) =>
+            this.tone(t, {
+              freq: f, dur: 1.4, gain: 0.15, type: "sawtooth", delay: i * 0.22
+            })
+          );
+          break;
+
+        default:
+          return false;
+      }
+    } catch (err) {
+      /* a browser refusing a node must never take the frame down */
+      return false;
+    }
+
+    return true;
+  },
+
+  surfaceFor(room) {
+    return SFX_ROOM_SURFACE[room] || "concrete";
+  },
+
+  /* Deliberately does NOT suspend the AudioContext. A suspended context
+     needs the audio thread - and sometimes fresh user activation - to come
+     back, which can leave effects dead for the rest of the session. Muting
+     the master gain and refusing to build nodes sounds identical and can
+     never get stuck. */
+  suspend() {
+    this.muted = true;
+    this.applyGain();
+  },
+
+  resume() {
+    this.muted = false;
+
+    /* best effort, for a context the browser suspended under its
+       autoplay policy rather than one we muted ourselves */
+    if (this.ctx && this.ctx.state === "suspended") {
+      this.ctx.resume().catch(() => {});
+    }
+
+    this.applyGain();
+  },
+
+  setEnabled(on) {
+    this.enabled = on;
+    this.applyGain();
+  }
+};
+
 
 
 const GRID_W = 56;
@@ -963,6 +1285,7 @@ let hintTimer = 0;
 
 /* flashlight */
 let spawnGrace = 0;
+let lastStepPhase = 0;
 
 let flashOn = true;
 let battery = 1;
@@ -1546,6 +1869,7 @@ function resetGame() {
   flashPower = 1;
   batteryWarned = false;
   spawnGrace = GRACE_SECONDS;
+  lastStepPhase = 0;
 
   clearSpawnArea();
 
@@ -1568,8 +1892,11 @@ function catchPlayer(monster) {
   lifeStat.textContent = String(lives);
   damagePulse = 1;
 
+  Sfx.play("catch");
+
   if (lives <= 0) {
     gameOver = true;
+    Sfx.play("gameOver");
     setStatus(`${monster.name} caught you.`);
     if (document.pointerLockElement === canvas) document.exitPointerLock();
     return;
@@ -1695,6 +2022,7 @@ function updateFlashlight(dt) {
       setStatus("The flashlight dies. Let it rest.", 3);
     } else if (battery < 0.2 && !batteryWarned) {
       batteryWarned = true;
+      Sfx.play("batteryLow");
       setStatus("Battery low. Switch it off to let the cell recover [F].", 3);
     }
   } else if (!flashOn) {
@@ -1774,8 +2102,20 @@ function update(dt) {
 
   if (moving) {
     player.bob += dt * (running ? 12 : 8);
+
+    /* one footfall per half bob cycle, so steps match the camera */
+    const phase = Math.floor(player.bob / Math.PI);
+
+    if (phase !== lastStepPhase) {
+      lastStepPhase = phase;
+      Sfx.play("footstep", {
+        surface: Sfx.surfaceFor(currentRoom),
+        running
+      });
+    }
   } else {
     player.bob *= 0.92;
+    lastStepPhase = Math.floor(player.bob / Math.PI);
   }
 
   const newRoom = roomAt(player.x, player.y);
@@ -1794,11 +2134,13 @@ function update(dt) {
       cardStat.textContent = `${collected}/${TOTAL_CARDS}`;
 
       if (collected === TOTAL_CARDS) {
+        Sfx.play("allCards");
         setStatus(
           `All ${TOTAL_CARDS} cards found. Find the TRUE EXIT in the endless exit-sign room.`,
           4
         );
       } else {
+        Sfx.play("card");
         setStatus(
           `Access card found. ${TOTAL_CARDS - collected} remain.`,
           2.5
@@ -1813,9 +2155,11 @@ function update(dt) {
   if (Math.hypot(player.x - exitPoint.x, player.y - exitPoint.y) < 0.75) {
     if (collected === TOTAL_CARDS) {
       won = true;
+      Sfx.play("win");
       setStatus("You escaped Ultra Elliot.");
       if (document.pointerLockElement === canvas) document.exitPointerLock();
     } else {
+      Sfx.play("falseExit");
       setStatus(
         `FALSE EXIT - ${TOTAL_CARDS - collected} access card(s) still missing.`,
         2.5
@@ -3281,6 +3625,7 @@ function applySystemInput() {
       setStatus("The cell is flat. Give it a moment.", 2);
     } else {
       flashOn = !flashOn;
+      Sfx.play(flashOn ? "torchOn" : "torchOff");
       setStatus(flashOn ? "Torch on." : "Torch off. Cell recovering.", 1.5);
     }
   }
@@ -3359,6 +3704,7 @@ canvas.addEventListener("mousedown", (event) => {
   event.preventDefault();
   canvas.focus();
   Music.unlock();
+      Sfx.unlock();
 
   if (!started) {
     startGame();
@@ -3385,6 +3731,7 @@ canvas.addEventListener("pointerdown", (event) => {
   if (event.pointerType !== "touch") return;
   canvas.focus();
   Music.unlock();
+      Sfx.unlock();
 
   if (!started) {
     startGame(false);
@@ -3398,6 +3745,7 @@ canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
 restartBtn.addEventListener("click", () => {
   Music.unlock();
+      Sfx.unlock();
   resetGame();
   started = true;
   canvas.focus();
@@ -3405,6 +3753,7 @@ restartBtn.addEventListener("click", () => {
 
 pauseBtn.addEventListener("click", () => {
   Music.unlock();
+      Sfx.unlock();
   togglePause();
   canvas.focus();
 });

@@ -95,6 +95,27 @@ the other sits silent and parked. Detection crossfades between them.
 Browsers block audio until the player interacts, so the score starts on the
 click or tap that enters the game. That is intended, not a bug.
 
+### Sound effects
+
+One-shot effects are **synthesised at runtime with Web Audio** — nothing to
+download, and every sound is a handful of numbers rather than a file.
+
+| Cue | When |
+| --- | --- |
+| Footstep | Every half cycle of the camera bob, so steps match the walk |
+| Card / All cards | Picking up an access card; a bigger cue for the seventh |
+| Catch / Game over | A creature reaches you; the run ending |
+| Torch on / off | The flashlight switch |
+| Battery low | The one warning you get |
+| False exit / Win | Touching the exit without the cards; escaping |
+
+Footsteps are **surface-aware** — carpet in the Lobby and Carpet Halls, water
+in the Poolrooms, metal in the Electrical Station and Pipe Tunnels, concrete
+elsewhere. Each step varies slightly so a corridor never sounds looped, and
+running is louder and faster than walking.
+
+`M` mutes everything, music and effects together.
+
 ### Adding tracks
 
 Drop an `.mp3` into `public/sound/` named `explore-NN-*` or `danger-NN-*`, then

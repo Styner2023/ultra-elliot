@@ -773,6 +773,72 @@
     "volumeHunted": 0.62,
     "volumePaused": 0.12,
     "dangerHoldSeconds": 4.5,
+    "effects": {
+      "model": "synthesised at runtime (Web Audio), no sample files",
+      "cues": [
+        "footstep (surface-aware)",
+        "card",
+        "allCards",
+        "catch",
+        "torchOn",
+        "torchOff",
+        "batteryLow",
+        "falseExit",
+        "win",
+        "gameOver"
+      ],
+      "footstepSurfaces": {
+        "carpet": {
+          "freq": 430,
+          "q": 1,
+          "dur": 0.15,
+          "gain": 0.15,
+          "thump": 70
+        },
+        "concrete": {
+          "freq": 1500,
+          "q": 1.7,
+          "dur": 0.1,
+          "gain": 0.17,
+          "thump": 95
+        },
+        "metal": {
+          "freq": 2700,
+          "q": 3.6,
+          "dur": 0.18,
+          "gain": 0.14,
+          "thump": 150
+        },
+        "water": {
+          "freq": 950,
+          "q": 0.8,
+          "dur": 0.24,
+          "gain": 0.18,
+          "thump": 0
+        },
+        "tile": {
+          "freq": 2100,
+          "q": 2.3,
+          "dur": 0.11,
+          "gain": 0.16,
+          "thump": 130
+        }
+      },
+      "roomSurface": {
+        "1": "carpet",
+        "2": "carpet",
+        "3": "concrete",
+        "4": "metal",
+        "5": "water",
+        "6": "metal",
+        "7": "concrete",
+        "8": "carpet",
+        "9": "carpet",
+        "10": "concrete"
+      },
+      "footstepTiming": "one footfall per half cycle of the camera bob",
+      "note": "A native port can keep these as synthesis or swap in recorded samples; call sites only ever name a cue."
+    },
     "notes": [
       "Each deck rotates its own playlist independently.",
       "A creature detecting the player crossfades explore -> danger.",
