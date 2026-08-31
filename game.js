@@ -949,6 +949,81 @@ const Sfx = {
     return buffer;
   },
 
+  /* ------------------------------------------------------------------
+     Spatial audio.
+
+     The game is 2D on the floor plane, so world (x, y) maps to audio
+     (x, 0, y): audio Y is up, and audio -Z is forward. Keeping the
+     listener aimed correctly is what lets a player hear something behind
+     them and turn around.
+     ------------------------------------------------------------------ */
+
+  hasPanner: true,
+
+  /* Called every frame with the player's position and facing. */
+  updateListener(px, py, angle) {
+    if (!this.ctx || !this.ctx.listener) return;
+
+    const listener = this.ctx.listener;
+    const fx = Math.cos(angle);
+    const fy = Math.sin(angle);
+
+    try {
+      if (listener.positionX) {
+        /* modern: AudioParams. Assigned directly rather than scheduled -
+           this runs every frame, so a scheduled value would always be one
+           audio quantum behind the camera. */
+        listener.positionX.value = px;
+        listener.positionY.value = 0;
+        listener.positionZ.value = py;
+        listener.forwardX.value = fx;
+        listener.forwardY.value = 0;
+        listener.forwardZ.value = fy;
+        listener.upX.value = 0;
+        listener.upY.value = 1;
+        listener.upZ.value = 0;
+      } else if (listener.setPosition) {
+        /* older Safari and friends */
+        listener.setPosition(px, 0, py);
+        listener.setOrientation(fx, 0, fy, 0, 1, 0);
+      }
+    } catch (err) {
+      /* a browser refusing these must not take the frame down */
+    }
+  },
+
+  /* A source placed at a world position, feeding the master bus. */
+  panner(wx, wy) {
+    if (!this.hasPanner || !this.ctx.createPanner) return this.master;
+
+    try {
+      const node = this.ctx.createPanner();
+
+      node.panningModel = "HRTF";
+      node.distanceModel = "inverse";
+      node.refDistance = 1.6;
+      node.maxDistance = 24;
+      node.rolloffFactor = 1.5;
+
+      /* a one-shot sits still, so assign directly rather than scheduling:
+         setValueAtTime would not land until the next audio quantum */
+      if (node.positionX) {
+        node.positionX.value = wx;
+        node.positionY.value = 0;
+        node.positionZ.value = wy;
+      } else if (node.setPosition) {
+        node.setPosition(wx, 0, wy);
+      }
+
+      node.connect(this.master);
+
+      return node;
+    } catch (err) {
+      this.hasPanner = false;
+      return this.master;
+    }
+  },
+
   ready() {
     return (
       !this.failed &&
@@ -977,7 +1052,7 @@ const Sfx = {
   /* ---- primitives ---- */
 
   /* a filtered burst of noise: impacts, footsteps, splashes */
-  burst(when, { freq, q, dur, gain, type = "bandpass", sweep = 0 }) {
+  burst(when, { freq, q, dur, gain, type = "bandpass", sweep = 0 }, dest) {
     const source = this.ctx.createBufferSource();
     source.buffer = this.noiseBuffer;
 
@@ -1000,14 +1075,14 @@ const Sfx = {
 
     source.connect(filter);
     filter.connect(amp);
-    amp.connect(this.master);
+    amp.connect(dest || this.master);
 
     source.start(when);
     source.stop(when + dur + 0.02);
   },
 
   /* a pitched tone: pickups, warnings, stings */
-  tone(when, { freq, dur, gain, type = "sine", slideTo = 0, delay = 0 }) {
+  tone(when, { freq, dur, gain, type = "sine", slideTo = 0, delay = 0 }, dest) {
     const start = when + delay;
 
     const osc = this.ctx.createOscillator();
@@ -1024,7 +1099,7 @@ const Sfx = {
     amp.gain.exponentialRampToValueAtTime(0.0001, start + dur);
 
     osc.connect(amp);
-    amp.connect(this.master);
+    amp.connect(dest || this.master);
 
     osc.start(start);
     osc.stop(start + dur + 0.02);
@@ -1037,8 +1112,58 @@ const Sfx = {
 
     const t = this.ctx.currentTime;
 
+    /* options.at = { x, y } in world units places the sound in space */
+    const out = options.at
+      ? this.panner(options.at.x, options.at.y)
+      : this.master;
+
     try {
       switch (name) {
+
+        /* ---- positional creature voices ---- */
+
+        case "creatureIdle": {
+          /* a wet, low rasp - the sound of something breathing nearby */
+          const base = 150 + Math.random() * 90;
+
+          this.burst(t, {
+            freq: base * 2.1, q: 1.2, dur: 0.55, gain: 0.30, sweep: 0.45
+          }, out);
+
+          this.tone(t, {
+            freq: base, dur: 0.62, gain: 0.26, type: "sawtooth",
+            slideTo: base * 0.72
+          }, out);
+          break;
+        }
+
+        case "creatureAlert": {
+          /* it has seen you: sharper, rising, dissonant */
+          const base = 240 + Math.random() * 120;
+
+          this.burst(t, {
+            freq: base * 3.2, q: 2.4, dur: 0.42, gain: 0.42, sweep: 2.1
+          }, out);
+
+          this.tone(t, {
+            freq: base, dur: 0.48, gain: 0.34, type: "sawtooth",
+            slideTo: base * 2.0
+          }, out);
+
+          this.tone(t, {
+            freq: base * 1.06, dur: 0.44, gain: 0.22, type: "square",
+            slideTo: base * 1.9, delay: 0.02
+          }, out);
+          break;
+        }
+
+        case "creatureStep":
+          this.burst(t, {
+            freq: 320 + Math.random() * 200, q: 1.0, dur: 0.16,
+            gain: 0.26, sweep: 0.5
+          }, out);
+          break;
+
         case "footstep": {
           const surface =
             SFX_SURFACES[options.surface] || SFX_SURFACES.concrete;
@@ -1053,7 +1178,7 @@ const Sfx = {
             dur: surface.dur,
             gain: surface.gain * loud,
             sweep: 0.55
-          });
+          }, out);
 
           if (surface.thump) {
             this.tone(t, {
@@ -1062,20 +1187,20 @@ const Sfx = {
               gain: 0.10 * loud,
               type: "sine",
               slideTo: surface.thump * 0.6
-            });
+            }, out);
           }
           break;
         }
 
         case "card":
           /* two-note rise: unmistakably a pickup */
-          this.tone(t, { freq: 880, dur: 0.13, gain: 0.16, type: "triangle" });
+          this.tone(t, { freq: 880, dur: 0.13, gain: 0.16, type: "triangle" }, out);
           this.tone(t, {
             freq: 1320, dur: 0.30, gain: 0.14, type: "triangle", delay: 0.09
-          });
+          }, out);
           this.burst(t + 0.09, {
             freq: 5200, q: 1.2, dur: 0.16, gain: 0.05, sweep: 0.5
-          });
+          }, out);
           break;
 
         case "allCards":
@@ -1083,30 +1208,30 @@ const Sfx = {
           [660, 880, 1320].forEach((f, i) =>
             this.tone(t, {
               freq: f, dur: 0.5, gain: 0.13, type: "triangle", delay: i * 0.11
-            })
+            }, out)
           );
           break;
 
         case "catch": {
           /* low impact, then the drop out of the world */
-          this.burst(t, { freq: 190, q: 0.7, dur: 0.5, gain: 0.42, sweep: 0.25 });
+          this.burst(t, { freq: 190, q: 0.7, dur: 0.5, gain: 0.42, sweep: 0.25 }, out);
           this.tone(t, {
             freq: 150, dur: 0.7, gain: 0.30, type: "sawtooth", slideTo: 42
-          });
+          }, out);
           this.tone(t, {
             freq: 96, dur: 0.9, gain: 0.20, type: "square", slideTo: 34, delay: 0.05
-          });
+          }, out);
           break;
         }
 
         case "torchOn":
-          this.burst(t, { freq: 3400, q: 6, dur: 0.05, gain: 0.16 });
-          this.tone(t, { freq: 1500, dur: 0.05, gain: 0.07, type: "square" });
+          this.burst(t, { freq: 3400, q: 6, dur: 0.05, gain: 0.16 }, out);
+          this.tone(t, { freq: 1500, dur: 0.05, gain: 0.07, type: "square" }, out);
           break;
 
         case "torchOff":
-          this.burst(t, { freq: 2400, q: 6, dur: 0.05, gain: 0.14 });
-          this.tone(t, { freq: 900, dur: 0.06, gain: 0.06, type: "square" });
+          this.burst(t, { freq: 2400, q: 6, dur: 0.05, gain: 0.14 }, out);
+          this.tone(t, { freq: 900, dur: 0.06, gain: 0.06, type: "square" }, out);
           break;
 
         case "batteryLow":
@@ -1114,22 +1239,22 @@ const Sfx = {
           [0, 0.17].forEach((d) =>
             this.tone(t, {
               freq: 620, dur: 0.10, gain: 0.10, type: "square", delay: d
-            })
+            }, out)
           );
           break;
 
         case "falseExit":
           this.tone(t, {
             freq: 210, dur: 0.42, gain: 0.16, type: "sawtooth", slideTo: 130
-          });
-          this.burst(t, { freq: 380, q: 1.4, dur: 0.30, gain: 0.10 });
+          }, out);
+          this.burst(t, { freq: 380, q: 1.4, dur: 0.30, gain: 0.10 }, out);
           break;
 
         case "win":
           [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
             this.tone(t, {
               freq: f, dur: 1.5, gain: 0.13, type: "triangle", delay: i * 0.16
-            })
+            }, out)
           );
           break;
 
@@ -1137,7 +1262,7 @@ const Sfx = {
           [392, 311, 233, 174.6].forEach((f, i) =>
             this.tone(t, {
               freq: f, dur: 1.4, gain: 0.15, type: "sawtooth", delay: i * 0.22
-            })
+            }, out)
           );
           break;
 
@@ -1852,6 +1977,8 @@ function resetGame() {
     pause: 0,
     aware: false,
     dist: Infinity,
+    voice: 1 + Math.random() * 9,
+    step: Math.random() * 0.4,
     phase: Math.random() * Math.PI * 2
   }));
 
@@ -2002,6 +2129,31 @@ function updateMonsters(dt) {
     if (Math.hypot(monster.x - oldX, monster.y - oldY) < 0.003) {
       monster.a += 1.0 + Math.random() * 2.3;
       monster.pause = 0.08 + Math.random() * 0.16;
+    }
+
+    /* Positional voices. Idle rasps carry through walls, which is the
+       whole point: you hear something you cannot see. The alert cry only
+       happens when it has actually noticed you. */
+    monster.voice -= dt;
+
+    if (monster.voice <= 0) {
+      if (distance < 16) {
+        Sfx.play(chasing ? "creatureAlert" : "creatureIdle", { at: monster });
+      }
+
+      monster.voice = chasing
+        ? 1.1 + Math.random() * 1.4
+        : 5 + Math.random() * 8;
+    }
+
+    /* footfalls only while it is actually coming for you */
+    if (chasing && distance < 9) {
+      monster.step -= dt;
+
+      if (monster.step <= 0) {
+        Sfx.play("creatureStep", { at: monster });
+        monster.step = 0.32 + Math.random() * 0.14;
+      }
     }
 
     if (
@@ -3568,6 +3720,11 @@ function gameLoop(now) {
   Input.update();
   applySystemInput();
   update(dt);
+
+  /* the listener has to follow the camera or nothing is where it sounds */
+  if (started && player) {
+    Sfx.updateListener(player.x, player.y, player.a);
+  }
 
   /* the drone leans in when something has actually noticed you */
   const hunted =

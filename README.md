@@ -114,6 +114,23 @@ in the Poolrooms, metal in the Electrical Station and Pipe Tunnels, concrete
 elsewhere. Each step varies slightly so a corridor never sounds looped, and
 running is louder and faster than walking.
 
+### Spatial audio
+
+Creature sounds are **positioned in the world**, not played flat. An HRTF
+panner sits at each creature's coordinates and the listener follows the
+camera, so a creature behind you sounds behind you — and turning around moves
+it.
+
+| Voice | When |
+| --- | --- |
+| Idle rasp | Any creature within 16 units, every 5–13 s |
+| Alert cry | A creature that has actually detected you, every 1–2.5 s |
+| Footfalls | Only while one is chasing you, within 9 units |
+
+Idle rasps carry through walls deliberately: hearing something you cannot see
+is the point. The alert cry is the audio half of the detection system — if you
+hear it, something is coming.
+
 `M` mutes everything, music and effects together.
 
 ### Adding tracks

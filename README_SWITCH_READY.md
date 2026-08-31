@@ -27,7 +27,7 @@ release would still require.
 | Touch | On-screen pad, run/torch/pause buttons, drag-to-look |
 | Gameplay | 10 levels, 21 creatures, 7 access cards, 3 lives, true exit — unchanged |
 | Resilience | Pauses on controller disconnect, suspend, and focus loss |
-| Audio | Adaptive two-deck score with crossfade on detection, plus runtime-synthesised one-shot effects (surface-aware footsteps, pickups, catch, torch, stings) |
+| Audio | Adaptive two-deck score with crossfade on detection, plus runtime-synthesised one-shot effects and HRTF-spatialised creature voices |
 
 ### Display tiers
 
@@ -186,7 +186,7 @@ we do not have:
 
 | Gap | Status |
 | --- | --- |
-| Audio | Score and one-shot effects done. **No positional/3D audio** — effects are not spatialised to creature direction. |
+| Audio | Score, one-shot effects and HRTF-spatialised creature voices all done. Remaining: recorded samples if synthesis is not wanted. |
 | Localisation | English only. |
 | Save data / user profiles | None. No progress is persisted. |
 | Button glyphs and naming | Prompts say "A"; a Switch build must follow Nintendo's naming and glyph rules. |
@@ -279,7 +279,7 @@ Search `game.js` for `FUTURE NINTENDO SWITCH PORT PREPARATION`:
 | DISPLAY | 16:9 tiers, dynamic resolution, UI scaling |
 | INPUT | the whole abstract input layer and its bindings |
 | AUDIO | playlist rotation, ducking, mute — backend swaps for the port |
-| SOUND EFFECTS | cue names and synthesis; swap for samples or console audio |
+| SOUND EFFECTS | cue names, synthesis and 3D placement; swap for samples or console audio |
 | SYSTEM INPUT | menu / pause / restart intent |
 | (in `update`) | movement driven entirely by intent |
 | (in `drawHUD`) | HUD authored at 1280×720 and scaled |

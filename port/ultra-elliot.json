@@ -837,6 +837,33 @@
         "10": "concrete"
       },
       "footstepTiming": "one footfall per half cycle of the camera bob",
+      "spatial": {
+        "model": "HRTF panner per positioned source, listener follows the camera",
+        "worldToAudio": "world (x, y) -> audio (x, 0, y); audio Y is up",
+        "refDistance": 1.6,
+        "maxDistance": 24,
+        "rolloffFactor": 1.5,
+        "creatureVoices": {
+          "idleCue": "creatureIdle",
+          "alertCue": "creatureAlert",
+          "stepCue": "creatureStep",
+          "earshot": 16,
+          "idleIntervalSeconds": [
+            5,
+            13
+          ],
+          "alertIntervalSeconds": [
+            1.1,
+            2.5
+          ],
+          "stepRange": 9,
+          "stepIntervalSeconds": [
+            0.32,
+            0.46
+          ],
+          "note": "Idle rasps carry through walls on purpose - hearing something you cannot see is the point. The alert cry only fires once a creature has actually detected the player."
+        }
+      },
       "note": "A native port can keep these as synthesis or swap in recorded samples; call sites only ever name a cue."
     },
     "notes": [
