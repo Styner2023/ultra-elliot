@@ -396,3 +396,24 @@ body.has-touch .touch {
     font-size: 12px;
   }
 }
+
+/* developer credit */
+.credits {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 4px 0 2px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.credits strong {
+  color: var(--text);
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .credits {
+    display: none;
+  }
+}

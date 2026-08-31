@@ -1597,6 +1597,14 @@ const GRID_W = 56;
 const GRID_H = 44;
 const FOV = Math.PI / 3;
 
+/* ---------------------------------------------------------------
+   Ultra Elliot
+   Designed and developed by Styner Stiner
+   --------------------------------------------------------------- */
+
+const DEVELOPER = "Styner Stiner";
+const COPYRIGHT_YEAR = "2026";
+
 const TOTAL_CARDS = 7;
 const EXIT_ROOM = 10;
 
@@ -3637,6 +3645,11 @@ function drawTitleScreen(width, height) {
     height - px(26)
   );
 
+  /* developer credit */
+  ctx.fillStyle = "rgba(240,232,190,.80)";
+  ctx.font = `bold ${px(14).toFixed(1)}px Arial`;
+  ctx.fillText(`A game by ${DEVELOPER}`, width / 2, px(34));
+
   /* side panels use the space the square art leaves over */
   const panel = (width - size) / 2;
 
@@ -3714,6 +3727,14 @@ function drawEndScreen(width, height) {
       : "Press Enter or Restart to try again.",
     width / 2,
     height / 2 + px(118)
+  );
+
+  ctx.font = `${px(12).toFixed(1)}px Arial`;
+  ctx.fillStyle = "rgba(240,232,190,.60)";
+  ctx.fillText(
+    `Ultra Elliot  -  ${DEVELOPER}  -  (c) ${COPYRIGHT_YEAR}`,
+    width / 2,
+    height - px(24)
   );
 }
 

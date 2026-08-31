@@ -1,5 +1,7 @@
 # Ultra Elliot
 
+**Designed and developed by Styner Stiner.**
+
 A backrooms-style horror maze that runs entirely in the browser. No build step,
 no dependencies — three files and a cover image.
 
@@ -36,14 +38,14 @@ python3 -m http.server 8000
 
 Then open <http://localhost:8000>.
 
-### Live Server in VS Code
+### Any editor with a live-reload extension
 
-1. Open this folder in Visual Studio Code.
-2. Install the **Live Server** extension by Ritwick Dey.
-3. Right-click `index.html` → **Open with Live Server**.
+Most editors have a static-server or live-preview extension. Point it at this
+folder and open `index.html`.
 
-Opening `index.html` directly with a `file://` URL also works, but some browsers
-block the cover image that way.
+Opening `index.html` directly with a `file://` URL also works, but some
+browsers block the cover image and audio that way, so a local server is
+better.
 
 ## Controls
 
@@ -206,3 +208,13 @@ several times faster):
 | 1024x576 | ~14 ms |
 | 1280x720 | ~21 ms |
 | 640x360 | ~5 ms |
+
+## Credits
+
+**Ultra Elliot** — designed and developed by **Styner Stiner**.
+
+- Game design, engine and code: Styner Stiner
+- Music and cover art: Styner Stiner
+- Sound effects: synthesised at runtime by the engine
+
+© 2026 Styner Stiner. All rights reserved.

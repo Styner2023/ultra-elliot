@@ -1,5 +1,8 @@
 # Ultra Elliot — Platform Readiness
 
+**Ultra Elliot** is designed and developed by **Styner Stiner**.
+© 2026 Styner Stiner. All rights reserved.
+
 This document describes how **Ultra Elliot** is structured today, what is
 already prepared for controller play, and what a real Nintendo Switch OLED
 release would still require.
